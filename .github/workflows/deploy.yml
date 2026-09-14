@@ -1,27 +1,30 @@
-name: Deploy Spring Boot to EC2 via GHCR
+name: Deploy TCGstore Spring Boot to EC2 via GHCR
 
 on:
   push:
     branches:
-      - main  # Se ejecuta automáticamente al hacer push a la rama main
+      - main
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: vicente-palacios/tcgstore
   CONTAINER_NAME: tcgstore
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
-      packages: write # Permiso obligatorio para escribir en GitHub Packages
+      packages: write
 
     steps:
+
+      # 1. Descargar el código
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Configurar JDK 21 y la caché automática para Gradle
+      # 2. Configurar JDK 21
       - name: Set up JDK 21
         uses: actions/setup-java@v5
         with:
@@ -29,13 +32,13 @@ jobs:
           java-version: '21'
           cache: 'gradle'
 
-      # 2. Dar permisos de ejecución al Gradle Wrapper y compilar el JAR
+      # 3. Compilar proyecto Spring Boot
       - name: Build with Gradle
         run: |
           chmod +x gradlew
           ./gradlew bootJar -x test
 
-      # 3. Autenticarse en GitHub Container Registry (GHCR) usando las variables de GitHub
+      # 4. Login en GitHub Container Registry
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -43,7 +46,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 4. Construir y subir la imagen Docker a GHCR con el tag 'latest'
+      # 5. Construir y subir imagen Docker
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -51,66 +54,74 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      # 5. Despliegue Automatizado e Idempotente vía SSH
+      # 6. Desplegar en EC2
       - name: Deploy to EC2 Instance
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ vars.TARGET_HOST_IP }}  # Lee tu IP 18.216.244.5
-          username: ec2-user                 # Usuario Amazon Linux
-          key: ${{ secrets.EC2_SSH_KEY }}     # Tu llave .pem
+          host: ${{ vars.TARGET_HOST_IP }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           envs: TARGET_HOST_IP
+
           script: |
-            # --- APROVISIONAMIENTO IDEMPOTENTE DE SWAP ---
+
+            # --- CREAR SWAP SI NO EXISTE ---
             if [ ! -f /swapfile ]; then
               echo "Instancia sin Swap. Creando 2GB..."
+
               sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
               sudo chmod 600 /swapfile
               sudo mkswap /swapfile
               sudo swapon /swapfile
+
               echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
             fi
-            
-            # --- APROVISIONAMIENTO IDEMPOTENTE DE DOCKER ---
+
+            # --- INSTALAR DOCKER SI NO EXISTE ---
             if ! command -v docker &> /dev/null; then
-              echo "Docker no está instalado. Iniciando instalación..."
+              echo "Docker no está instalado. Instalando..."
+
               sudo dnf update -y
               sudo dnf install -y docker
+
               sudo systemctl start docker
               sudo systemctl enable docker
+
               sudo usermod -aG docker ec2-user
             fi
-            
-            # --- EJECUCIÓN SEGURA CON PERMISOS REFRESCADOS ---
+
+            # --- LOGIN Y DESPLIEGUE ---
             sg docker -c "
-              # Autenticar el Docker local del EC2 en GHCR
-              echo '${{ secrets.GH_CR_PAT }}' | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            
-              # Descargar la última versión de la imagen
+
+              # Login en GHCR
+              echo '${{ secrets.GH_CR_PAT }}' | docker login ${{ env.REGISTRY }} \
+                -u ${{ github.actor }} \
+                --password-stdin
+
+              # Descargar imagen
               docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            
-              # --- PASOS IDEMPOTENTES DEL CONTENEDOR ---
+
+              # Detener contenedor anterior
               docker stop ${{ env.CONTAINER_NAME }} || true
+
+              # Eliminar contenedor anterior
               docker rm ${{ env.CONTAINER_NAME }} || true
+
+              # Limpiar imágenes antiguas
               docker image prune -f
-            
-              # --- MAPEO CRUZADO: Puerto 80 del Servidor al 8080 del Contenedor ---
+
+              # Ejecutar nueva versión
               docker run -d \
                 --name ${{ env.CONTAINER_NAME }} \
                 -p 80:8080 \
                 -e PORT=8080 \
                 -e PUBLIC_HOST_URL='http://$TARGET_HOST_IP' \
-                -e API_GATEWAY_SECRET='${{ secrets.API_GATEWAY_SECRET }}' \
-                -e DB_URL='jdbc:postgresql://aws-0-us-east-2.pooler.supabase.com:5432/postgres' \
-                -e DB_USER='${{ secrets.SUPABASE_DB_USER }}' \
-                -e DB_PASSWORD='${{ secrets.SUPABASE_DB_PASSWORD }}' \
-                -e AWS_REGION='us-east-2' \
                 --restart unless-stopped \
                 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
             "
+
         env:
           TARGET_HOST_IP: ${{ vars.TARGET_HOST_IP }}
-          API_GATEWAY_SECRET: ${{ secrets.API_GATEWAY_SECRET }}
           GH_CR_PAT: ${{ secrets.GH_CR_PAT }}
-          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
