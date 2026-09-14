@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY build/libs/*.jar app.jar
 
-RUN useradd -n springuser && chawn -R springuser /app
+RUN useradd -n springuser && chown -R springuser /app
 USER springuser
 
 EXPOSE 80
