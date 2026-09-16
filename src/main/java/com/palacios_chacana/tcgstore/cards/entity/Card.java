@@ -18,6 +18,7 @@ public class Card {
     private String condition;   // Estado físico (ej: "Near Mint", "Lightly Played", "Damaged")
     private Double price;
     private Integer stock;
+    private String imageUrl;    // URL de la imagen de la carta (opcional)
 
     // Esto lo requiere JPA
     protected Card() {
@@ -25,7 +26,7 @@ public class Card {
     }
 
     public Card(String id, String name, String game, String setName, String rarity,
-                String condition, Double price, Integer stock) {
+                String condition, Double price, Integer stock, String imageUrl) {
         this.id = id;
         this.name = name;
         this.game = game;
@@ -34,6 +35,7 @@ public class Card {
         this.condition = condition;
         this.price = price;
         this.stock = stock;
+        this.imageUrl = imageUrl;
     }
 
     public String getId() {
@@ -99,5 +101,14 @@ public class Card {
     public void setStock(Integer stock) {
         this.stock = stock;
     }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 }
+
 
