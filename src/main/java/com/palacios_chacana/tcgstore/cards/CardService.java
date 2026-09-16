@@ -38,7 +38,8 @@ public class CardService {
                 request.rarity(),
                 request.condition(),
                 request.price(),
-                request.stock()
+                request.stock(),
+                request.imageUrl()
         );
         return toResponseDto(cardRepository.save(card));
     }
@@ -52,6 +53,7 @@ public class CardService {
             card.setCondition(request.condition());
             card.setPrice(request.price());
             card.setStock(request.stock());
+            card.setImageUrl(request.imageUrl());
             return toResponseDto(cardRepository.save(card));
         });
     }
@@ -65,6 +67,7 @@ public class CardService {
             if (request.condition() != null) card.setCondition(request.condition());
             if (request.price() != null) card.setPrice(request.price());
             if (request.stock() != null) card.setStock(request.stock());
+            if (request.imageUrl() != null) card.setImageUrl(request.imageUrl());
             return toResponseDto(cardRepository.save(card));
         });
     }
@@ -86,7 +89,8 @@ public class CardService {
                 card.getRarity(),
                 card.getCondition(),
                 card.getPrice(),
-                card.getStock()
+                card.getStock(),
+                card.getImageUrl()
         );
     }
 }

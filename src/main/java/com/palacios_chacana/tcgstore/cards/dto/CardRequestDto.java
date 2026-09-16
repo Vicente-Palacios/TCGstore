@@ -7,6 +7,7 @@ public record CardRequestDto(
         String rarity,
         String condition,
         Double price,
-        Integer stock
+        Integer stock,
+        String imageUrl
 ) {
 }
