@@ -8,6 +8,7 @@ public record CardResponseDto(
         String rarity,
         String condition,
         Double price,
-        Integer stock
+        Integer stock,
+        String imageUrl
 ) {
 }
