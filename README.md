@@ -269,3 +269,18 @@ No se usa ningún gestor de secretos externo (Azure Key Vault, AWS Secrets Manag
 - **Supabase (PostgreSQL)**: base de datos gestionada, usada como reemplazo liviano de un RDS tradicional para este alcance del proyecto.
 
 ---
+Captura 1 — Respuesta 200 (token válido, GET permitido a cualquier autenticado):
+
+Se realizó una petición GET /api/cards con un token JWT válido de Cognito (usuario con rol Colaborador) y el header X-Secret-Gateway correcto. El backend respondió 200 OK, devolviendo el listado de cartas en formato JSON, confirmando que la autenticación y la conexión a la base de datos funcionan correctamente.
+
+<img width="907" height="466" alt="image" src="https://github.com/user-attachments/assets/69e391b0-97c6-4cef-98ab-ab5b2c7202f2" />
+
+Captura 2 — Respuesta 403 (token válido, pero sin el rol requerido):
+
+Se realizó una petición DELETE /api/cards/{id} con el mismo token válido de un usuario Colaborador. El backend respondió 403 Forbidden con el mensaje insufficient_scope, ya que el endpoint de eliminación requiere el rol Admin (@PreAuthorize("hasRole('Admin')")). Esto confirma que la autorización basada en roles funciona correctamente: el usuario está autenticado, pero no autorizado para esta acción específica.
+
+<img width="883" height="451" alt="image" src="https://github.com/user-attachments/assets/29a859dd-14a4-4116-9e74-4acb811d23f9" />
+
+
+
+
